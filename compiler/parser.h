@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "symbol.h"
 
 enum NTSymbol {
     $Program=1, $DeclBlock, $Declaration, $DeclType, $DeclVar, $DeclFunc, $FparaBlock,
@@ -14,6 +15,8 @@ typedef struct TreeNode {
     NTSymbol nt_symbol; //Non-terminal symbol type
     TSymbol t_symbol; //Terminal symbol type
     string token;
+	int line;
+	Symbol val;
 } TreeNode;
 
 /**
@@ -61,7 +64,7 @@ class Parser : protected Lexer {
         void retrack(vector<Word>::iterator it);
         Word word; // Current definite symbol
         vector<Word>::iterator word_it;
-        TreeNode createNode(NTSymbol nt_symbol, TSymbol t_symbol = (TSymbol)0, string token="");
+        TreeNode createNode(NTSymbol nt_symbol, TSymbol t_symbol = (TSymbol)0, string token="", int line = 0);
         void insertNode(TreeNode* parent, TreeNode child);
 
        // void dfsResult(boost::property_tree::ptree* pt, TreeNode n);
@@ -72,4 +75,4 @@ class Parser : protected Lexer {
 		void printResult(TreeNode n);
 };
 
-#define INSERT_TERM_SYMBOL(x)  insertNode(parent, createNode($TerminalSymbol, x, word.token))
+#define INSERT_TERM_SYMBOL(x)  insertNode(parent, createNode($TerminalSymbol, x, word.token, word.wordline))

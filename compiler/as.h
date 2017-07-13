@@ -1,14 +1,17 @@
-#ifndef __IR_H_
-#define __IR_H_
+#ifndef __AS_H_
+#define __AS_H_
 
-#include "as.h"
-#include "gen.h"
+#include "parser.h"
+#include "symbol.h"
 
 #include <iomanip>
 
 typedef vector<TreeNode>::iterator TreeNode_it;
 
-class IR : protected AS , protected IRGen {
+class AS : protected Parser , protected SymTable {
+private:
+	bool inner_error;
+
 protected:
 
 private:
@@ -30,23 +33,26 @@ private:
 	void _statWhile(TreeNode* parent);
 	void _statReturn(TreeNode* parent);
 	void _statAssign(TreeNode* parent);
-	BBlock _Ifexpression(TreeNode* parent, BBlock trueBB);
-	BBlock _Whileexpression(TreeNode* parent, BBlock trueBB);
-	Symbol _expression(TreeNode* parent);
-	Symbol _exprArith(TreeNode* parent);
-	Symbol _item(TreeNode* parent);
-	Symbol _factor(TreeNode* parent);
-	ParameterList _ftype(TreeNode* parent);
-	ParameterList _call(TreeNode* parent);
-	ParameterList _aparameter(TreeNode* parent);
-	ParameterList _aparaList(TreeNode* parent);
+	void _expression(TreeNode* parent);
+	void _exprArith(TreeNode* parent);
+	void _item(TreeNode* parent);
+	void _factor(TreeNode* parent);
+	void _ftype(TreeNode* parent);
+	void _call(TreeNode* parent);
+	void _aparameter(TreeNode* parent);
+	void _aparaList(TreeNode* parent);
 
 	void advance(TreeNode *parent, TreeNode_it &node_it);
 
 	FunctionSymbol FSYM;	//指當前正翻譯的FunctionSymbol
+
+private:
+	void Error_ReDef(Symbol Fvar, const char *ID, int type, int line);
+	void Error_UnDef(const char *ID, int line);
+
 public:
 	void analyze(string);
-	void printResult();
+
 };
 
 #endif

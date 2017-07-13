@@ -1,6 +1,8 @@
 #include "parser.h"
 
-#define DEBUG_PRINT(x) cout << "ERROR syntax in " << x << endl;
+#define DEBUG_PRINT(x) char tmp[1000];\
+						sprintf(tmp, "syntax error before '%s'", word.token.c_str());\
+						Error::Do_Fatal(tmp, word.wordline);
 
 void Parser::initializeNTSymbolList() {
 	ntSymbolList[$Program] = "$Program";
@@ -53,11 +55,12 @@ void Parser::retrack(vector<Word>::iterator it) {
 	word = *word_it;
 }
 
-TreeNode Parser::createNode(NTSymbol nt_symbol, TSymbol t_symbol, string token) {
+TreeNode Parser::createNode(NTSymbol nt_symbol, TSymbol t_symbol, string token, int line) {
 	TreeNode new_node;
 	new_node.nt_symbol = nt_symbol;
 	new_node.t_symbol = t_symbol;
 	new_node.token = token;
+	new_node.line = line;
 	return new_node;
 }
 
@@ -275,17 +278,22 @@ int Parser::_innerDeclar(TreeNode *parent) {
 		insertNode(parent, child);
 		while (word.t_symbol == $SEMICOLON) {
 			INSERT_TERM_SYMBOL($SEMICOLON);
-			advance();
+			advance();			
+
 			TreeNode child = createNode($InnerDeclVar); // corrected at 2016/12/4 0:44
 			vector<Word>::iterator t_it = word_it;
 			if (_innerDeclVar(&child)) {
 				insertNode(parent, child);
+				if (word.t_symbol != $SEMICOLON) {
+					DEBUG_PRINT("_innerDeclar");
+				}
 			}
 			else {
 				retrack(t_it);
 				break;
 			}
 		}
+
 		return 1;
 	}
 	else {
@@ -348,7 +356,7 @@ int Parser::_statement(TreeNode *parent) {
 					insertNode(parent, child);
 				}
 				else {
-					DEBUG_PRINT("_statement");
+					//DEBUG_PRINT("_statement");
 					return 0;
 				}
 			}
@@ -679,6 +687,7 @@ void Parser::analyze(string input) {
 		cout << word.token << endl;
 		//throw runtime_error("Syntax error detected.");
 	};
+
 }
 
 void Parser::printResult(TreeNode n)

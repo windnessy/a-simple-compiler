@@ -16,10 +16,13 @@ enum
 #define SYMBOL_COMMON     \
     int		kind;         \
     string	name;         \
+	string	aname;		  \
     int		level;        \
     int		ref;          \
 	int		val;		  \
+	int		line;		  \
     struct symbol *reg;   \
+	struct symbol *link;  \
     struct symbol *next;
 
 typedef struct bblock *BBlock;
@@ -33,13 +36,14 @@ typedef struct variableSymbol
 {
 	SYMBOL_COMMON
 	int	idata;
+	int offset;
 } *VariableSymbol;
 
 typedef struct functionSymbol
 {
 	SYMBOL_COMMON
-	Symbol params;
-	Symbol locals;
+	vector<Symbol> params;
+	vector<Symbol> locals;
 	int nbblock;
 	BBlock entryBB;
 	BBlock exitBB;
@@ -52,18 +56,40 @@ typedef struct table
 	struct table *outer;
 } *Table;
 
-void InitSymbolTable(void);
-void EnterScope(void);
-void ExitScope(void);
+class SymTable {
+protected:
+	// normal identifiers in current scope
+	Table Identifiers;
+	// normal identifiers in global scope
+	struct table GlobalIDs;
+	// all the constants
+	struct table Constants;
 
-Symbol AddVariable(string name);
-Symbol AddFunction(string name);
-Symbol AddSymbol(Table tbl, Symbol sym);
-Symbol AddConstant(int i);
-Symbol CreateTemp();
-Symbol CreateLabel();
-Symbol IntConstant(int i);
-Symbol LookupID(string name);
-Symbol DoLookupSymbol(Table tbl, string name, int  searchOuter = 1);
+	// Level increment; exiting each nesting level, Level decrement
+	int Level;
+	// number of temporaries
+	int TempNum;
+	// number of labels, see CreateLabel(void)
+	int LabelNum;
+
+private:
+	Symbol AddSymbol(Table tbl, Symbol sym);
+	Symbol DoLookupSymbol(Table tbl, string name, int searchOuter = 1);
+
+public:
+	void InitSymbolTable(void);
+	void EnterScope(void);
+	void ExitScope(void);
+
+	Symbol AddVariable(string name, int line);
+	Symbol AddFunction(string name, int line);
+	Symbol AddConstant(int i);
+
+	Symbol CreateTemp();
+	Symbol CreateLabel();
+	Symbol IntConstant(int i);
+
+	Symbol LookupID(string name, int searchOuter = 1);
+};
 
 #endif

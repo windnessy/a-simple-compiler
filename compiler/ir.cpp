@@ -1,8 +1,5 @@
 #include "ir.h"
-
-//#define DEBUG_DEFINITION_PRINT(x) cout << "Repeat definition: '" << x << "' in " << p_stable->ID << endl;
-
-extern table GlobalIDs;
+#include <stdlib.h>
 
 void IR::printResult()
 {
@@ -11,7 +8,17 @@ void IR::printResult()
 	for (; buckets_it != GlobalIDs.buckets.end(); buckets_it++) {
 		if ((*buckets_it)->kind == SK_Function) {
 			cout << endl;
-			cout << "function " << (*buckets_it)->name << endl;
+			cout << "function " << (*buckets_it)->name;
+			cout << "(";
+			vector<Symbol>::iterator it = ((FunctionSymbol)(*buckets_it))->params.begin();
+			for (; it != ((FunctionSymbol)(*buckets_it))->params.end(); it++)
+			{
+				cout << "int " << (*it)->name;
+				if (it + 1 != ((FunctionSymbol)(*buckets_it))->params.end())
+					cout << ",";
+			}
+			cout << ")";
+			cout << endl;
 			cout << "---------------------" << endl;
 			BBlock entryBB = ((FunctionSymbol)(*buckets_it))->entryBB;
 
@@ -107,15 +114,14 @@ void IR::_declaration(TreeNode* parent)
 		string ID;
 		advance(parent, node_it);
 		if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $ID) {
-			ID = node_it->token;
 			advance(parent, node_it);
 
 			if (node_it->nt_symbol == $DeclType) {
 				if (node_it->children.begin()->nt_symbol == $DeclVar) {
-					AddVariable(ID);
+					
 				}
 				else if (node_it->children.begin()->nt_symbol == $DeclFunc) {
-					FSYM = (FunctionSymbol)AddFunction(ID);
+					FSYM = (FunctionSymbol)node_it->val;
 				}
 
 				_declType(&(*node_it));
@@ -124,7 +130,8 @@ void IR::_declaration(TreeNode* parent)
 	} else if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $VOID) {
 		advance(parent, node_it);
 
-		FSYM = (FunctionSymbol)AddFunction(node_it->token);
+		FSYM = (FunctionSymbol)node_it->val;
+
 		advance(parent, node_it);
 		_declFunc(&(*node_it));	
 	}
@@ -152,9 +159,10 @@ void IR::_declFunc(TreeNode* parent)
 {
 	EnterScope();
 	
+	// 申請函數入口BBlock
 	FSYM->entryBB = CreateBBlock();
-	FSYM->exitBB = CreateBBlock();
 
+	// 令當前块(BBlock)指向entryBB
 	StartBBlock(FSYM->entryBB);
 
 	TreeNode_it node_it = parent->children.begin();
@@ -177,9 +185,11 @@ void IR::_declFunc(TreeNode* parent)
 	}
 
 	
-	StartBBlock(FSYM->exitBB);
+	// 令當前块(BBlock)指向exitBB
+	FSYM->exitBB = GetCurrentBB();
 	GenerateRet();
 
+	// 為每一個块申請Label
 	BBlock bb;
 	bb = FSYM->entryBB;
 	while (bb != NULL)
@@ -224,13 +234,9 @@ void IR::_fparaList(TreeNode *parent)
 
 void IR::_fparameter(TreeNode *parent)
 {
-	TreeNode_it node_it = parent->children.begin();
-
-	// TYPE: int
-	advance(parent, node_it);
-
-	string var_name = node_it->token;
-	AddVariable(var_name);
+	/*
+	@ 形參部分
+	*/
 }
 
 void IR::_statBlock(TreeNode *parent)
@@ -239,9 +245,6 @@ void IR::_statBlock(TreeNode *parent)
 
 	if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $LCURLY) {
 		advance(parent, node_it);
-
-		//a new level table
-		EnterScope();
 
 		if (node_it->nt_symbol == $InnerDeclar) {
 			_innerDeclar(&(*node_it));
@@ -253,9 +256,6 @@ void IR::_statBlock(TreeNode *parent)
 
 				if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $RCURLY) {
 					advance(parent, node_it);
-
-					// back to the table before
-					ExitScope();
 				}
 			}
 		}
@@ -284,13 +284,9 @@ void IR::_innerDeclar(TreeNode *parent)
 
 void IR::_innerDeclVar(TreeNode *parent)
 {
-	TreeNode_it node_it = parent->children.begin();
-	
-	// TYPE: int
-	advance(parent, node_it);
-
-	string var_name = node_it->token;
-	AddVariable(var_name);
+	/*
+	@ 局部變量部分
+	*/
 }
 
 void IR::_statString(TreeNode *parent)
@@ -327,8 +323,8 @@ void IR::_statAssign(TreeNode *parent)
 	Symbol dst, src;
 
 	if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $ID) {
-		string arg = node_it->token;
-		dst = LookupID(arg);
+		dst = node_it->val;
+
 		advance(parent, node_it);
 
 		if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $ASSIGN) {
@@ -337,7 +333,9 @@ void IR::_statAssign(TreeNode *parent)
 			if (node_it->nt_symbol == $Expression) {
 				src = _expression(&(*node_it));
 
-				GenerateMove(dst, src);
+				if (dst != NULL && src != NULL) {
+					GenerateMove(dst, src);
+				}
 			}
 		}
 	}
@@ -346,7 +344,6 @@ void IR::_statAssign(TreeNode *parent)
 void IR::_statWhile(TreeNode *parent)
 {
 	TreeNode_it node_it = parent->children.begin();
-	Symbol dst;
 
 	if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $WHILE) {
 		advance(parent, node_it);
@@ -375,9 +372,7 @@ void IR::_statWhile(TreeNode *parent)
 						_statBlock(&(*node_it));
 						// continue
 						StartBBlock(contBB);
-						dst = _expression(&(*cont));
-						
-						GenerateBranch(loopBB, $JE, dst, IntConstant(1));
+						loopBB = _Whileexpression(&(*cont), loopBB);
 
 						StartBBlock(nextBB);
 						advance(parent, node_it);
@@ -391,7 +386,6 @@ void IR::_statWhile(TreeNode *parent)
 void IR::_statIf(TreeNode *parent)
 {
 	TreeNode_it node_it = parent->children.begin();
-	Symbol dst;
 
 	if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $IF) {
 		advance(parent, node_it);
@@ -430,8 +424,7 @@ void IR::_statIf(TreeNode *parent)
 								TreeNode_it falsestat = node_it;
 								falseBB = CreateBBlock();
 
-								dst = _expression(&(*cont));
-								GenerateBranch(nextBB, $JNE, dst, IntConstant(1));
+								falseBB = _Ifexpression(&(*cont), falseBB);
 								// true
 								StartBBlock(trueBB);
 								_statBlock(&(*truestat));
@@ -446,13 +439,14 @@ void IR::_statIf(TreeNode *parent)
 						else {
 							/*
 							 *		if !expr goto nextBB
+							 *		goto nextBB
 							 * trueBB:
 							 *		stmt1
 							 * nextBB :
 							 *		...
 							 */
-							dst = _expression(&(*cont));
-							GenerateBranch(nextBB, $JNE, dst, IntConstant(1));
+							nextBB = _Ifexpression(&(*cont), nextBB);
+						
 							// true;
 							StartBBlock(trueBB);
 							_statBlock(&(*truestat));
@@ -484,6 +478,94 @@ void IR::_statReturn(TreeNode *parent)
 			}
 		}
 	}
+}
+
+BBlock IR::_Ifexpression(TreeNode *parent, BBlock trueBB)
+{
+	TreeNode_it node_it = parent->children.begin();
+	Symbol dst, src1, src2;
+
+	if (node_it->nt_symbol == $ExprArith) {
+		dst = _exprArith(&(*node_it));
+		advance(parent, node_it);
+
+		while (node_it != parent->children.end()) {
+			int opcode;
+			string op = node_it->token;
+
+			if (op == "==")
+				opcode = $JNE;
+			else if (op == "!=")
+				opcode = $JE;
+			else if (op == ">")
+				opcode = $JLE;
+			else if (op == "<")
+				opcode = $JGE;
+			else if (op == ">=")
+				opcode = $JL;
+			else if (op == "<=")
+				opcode = $JG;
+			else
+				opcode = $NOP;
+
+			advance(parent, node_it);
+
+			if (node_it->nt_symbol == $ExprArith) {
+
+				src2 = _exprArith(&(*node_it));
+				src1 = dst;
+
+				GenerateBranch(trueBB, opcode, src1, src2);
+				advance(parent, node_it);
+				return trueBB;
+			}
+		}
+	}
+	return NULL;
+}
+
+BBlock IR::_Whileexpression(TreeNode *parent, BBlock loopBB)
+{
+	TreeNode_it node_it = parent->children.begin();
+	Symbol dst, src1, src2;
+
+	if (node_it->nt_symbol == $ExprArith) {
+		dst = _exprArith(&(*node_it));
+		advance(parent, node_it);
+
+		while (node_it != parent->children.end()) {
+			int opcode;
+			string op = node_it->token;
+
+			if (op == "==")
+				opcode = $JE;
+			else if (op == "!=")
+				opcode = $JNE;
+			else if (op == ">")
+				opcode = $JG;
+			else if (op == "<")
+				opcode = $JL;
+			else if (op == ">=")
+				opcode = $JGE;
+			else if (op == "<=")
+				opcode = $JLE;
+			else
+				opcode = $NOP;
+
+			advance(parent, node_it);
+
+			if (node_it->nt_symbol == $ExprArith) {
+
+				src2 = _exprArith(&(*node_it));
+				src1 = dst;
+
+				GenerateBranch(loopBB, opcode, src1, src2);
+				advance(parent, node_it);
+				return loopBB;
+			}
+		}
+	}
+	return NULL;
 }
 
 Symbol IR::_expression(TreeNode *parent)
@@ -528,7 +610,7 @@ Symbol IR::_expression(TreeNode *parent)
 				src2 = _exprArith(&(*node_it));
 				src1 = dst;
 				dst = CreateTemp();
-				
+
 				GenerateBranch(trueBB, opcode, src1, src2);
 				
 				// t = 0
@@ -621,12 +703,11 @@ Symbol IR::_factor(TreeNode *parent)
 	Symbol sym, recv;
 
 	if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $NUM) {
-		string token = node_it->token;
-		sym = IntConstant(atoi(token.c_str()));
+		sym = node_it->val;
 	}
 	else if (node_it->nt_symbol == $TerminalSymbol && node_it->t_symbol == $ID) {
-		string token = node_it->token;
-		sym = LookupID(token);
+		sym = node_it->val;
+
 		advance(parent, node_it);
 
 		if (node_it != parent->children.end() && node_it->nt_symbol == $Ftype) {
@@ -706,7 +787,9 @@ ParameterList IR::_aparaList(TreeNode *parent)
 		string arg;
 		if (node_it->nt_symbol == $Expression) {
 			sym = _expression(&(*node_it));
+
 			list->args.push_back(sym);
+			list->npara++;
 		}
 		advance(parent, node_it);
 	}
@@ -716,12 +799,10 @@ ParameterList IR::_aparaList(TreeNode *parent)
 
 void IR::analyze(string input)
 {
-	Parser::analyze(input);
+	AS::analyze(input);
+
 	if (synTree.nt_symbol == $Program)
 	{
-		// Initial the symbol table
-		InitSymbolTable();
-
 		// start 
 		_program(&synTree);
 	}

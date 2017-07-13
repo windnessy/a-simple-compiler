@@ -177,9 +177,16 @@ void Lexer::analyze(string input)
 	iter = input.begin();
 	int annotation = 0;
 
+	//the first line
+	line = 1;
+
 	for (; iter != input.end(); ++iter) {
-		if (*iter == ' ' || *iter == '\t' || *iter == '\n')
+
+		if (*iter == ' ' || *iter == '\t' || *iter == '\n' || *iter == '\r')
 		{
+			if (*iter == '\n')
+				line = line + 1;
+
 			if (*iter == '\n' && annotation == 1)
 				annotation = 0;
 			continue;
@@ -221,7 +228,6 @@ void Lexer::analyze(string input)
 			token.clear();
 		}
 		else if (int sym = _operator(token)) {
-			// ??им? "==", "/*, "*/" ?ии?????e?????ик
 			if (sym == $ASSIGN && *(iter + 1) == '=')
 				continue;
 			if (sym == $SLASH && (*(iter + 1) == '/' || *(iter + 1) == '*'))
@@ -273,6 +279,7 @@ Word Lexer::createWord(TSymbol symbol, string token)
 	Word word;
 	word.t_symbol = (TSymbol)symbol;
 	word.token = token;
+	word.wordline = line;
 	return word;
 }
 
@@ -281,6 +288,6 @@ void Lexer::printResult()
 	vector<Word>::iterator it = wordList.begin();
 	for (; it != wordList.end(); it++)
 	{
-		cout << it->token << " " << symbolList[it->t_symbol] << endl;
+		cout << it->token << " " << symbolList[it->t_symbol] << ":" << it->wordline << endl;
 	}
 }
