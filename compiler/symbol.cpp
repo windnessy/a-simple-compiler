@@ -1,20 +1,9 @@
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include "symbol.h"
 
-// normal identifiers in current scope
-Table Identifiers;
-// normal identifiers in global scope
-struct table GlobalIDs;
-// all the constants
-struct table Constants;
-
-// Level increment; exiting each nesting level, Level decrement
-int Level;
-// number of temporaries
-int TempNum;
-// number of labels, see CreateLabel(void)
-int LabelNum;
-
-Symbol DoLookupSymbol(Table tbl, string name, int  searchOuter) {
+Symbol SymTable::DoLookupSymbol(Table tbl, string name, int searchOuter) {
 	vector<Symbol>::iterator it;
 
 	do {
@@ -29,12 +18,12 @@ Symbol DoLookupSymbol(Table tbl, string name, int  searchOuter) {
 	return NULL;
 }
 
-Symbol LookupID(string name)
+Symbol SymTable::LookupID(string name, int searchOuter)
 {
-	return DoLookupSymbol(Identifiers, name);
+	return DoLookupSymbol(Identifiers, name, searchOuter);
 }
 
-void EnterScope(void)
+void SymTable::EnterScope(void)
 {
 	Table t = new table;
 
@@ -45,31 +34,45 @@ void EnterScope(void)
 	Identifiers = t;
 }
 
-void ExitScope(void)
+void SymTable::ExitScope(void)
 {
 	Level--;
 	Identifiers = Identifiers->outer;
 }
 
-Symbol AddVariable(string name)
+Symbol SymTable::AddSymbol(Table tbl, Symbol sym)
+{
+	sym->level = tbl->level;
+	tbl->buckets.push_back((Symbol)sym);
+
+	return sym;
+}
+
+Symbol SymTable::AddVariable(string name, int line)
 {
 	VariableSymbol p = new variableSymbol;
 
 	p->kind = SK_Variable;
 	p->name = name;
 	p->ref = 0;
+	p->reg = NULL;
+	p->link = NULL;
+	p->line = line;
 
 	return AddSymbol(Identifiers, (Symbol)p);
 }
 
-Symbol AddFunction(string name)
+Symbol SymTable::AddFunction(string name, int line)
 {
 	FunctionSymbol p = new functionSymbol;
 
 	p->kind = SK_Function;
 	p->name = name;
-	//p->lastv = &p->params;
 	p->ref = 0;
+	p->reg = NULL;
+	p->link = NULL;
+	p->line = line;
+	p->arguments = 0;
 
 	if (Identifiers != &GlobalIDs) {
 		AddSymbol(Identifiers, (Symbol)p);
@@ -78,15 +81,7 @@ Symbol AddFunction(string name)
 	return AddSymbol(&GlobalIDs, (Symbol)p);
 }
 
-Symbol AddSymbol(Table tbl, Symbol sym)
-{
-	sym->level = tbl->level;
-	tbl->buckets.push_back((Symbol)sym);
-
-	return sym;
-}
-
-Symbol AddConstant(int i)
+Symbol SymTable::AddConstant(int i)
 {
 	Symbol p = new symbol;
 
@@ -97,12 +92,14 @@ Symbol AddConstant(int i)
 	p->name = buf;
 	p->ref = 0;
 	p->val = i;
+	p->reg = NULL;
+	p->link = NULL;
 
 	Constants.buckets.push_back((Symbol)p);
 
 	return p;
 }
-Symbol CreateTemp()
+Symbol SymTable::CreateTemp()
 {
 	VariableSymbol p = new variableSymbol;
 
@@ -111,13 +108,15 @@ Symbol CreateTemp()
 	char buf[256];
 	sprintf(buf, "t%d", TempNum++);
 	p->name = buf;
-
+	p->reg = NULL;
+	p->link = NULL;
 	p->level = 1;
+	p->ref = 0;
 
 	return (Symbol)p;
 }
 
-Symbol CreateLabel(void)
+Symbol SymTable::CreateLabel(void)
 {
 	Symbol p = new symbol;
 
@@ -126,20 +125,23 @@ Symbol CreateLabel(void)
 	char buf[256];
 	sprintf(buf, "BB%d", LabelNum++);
 	p->name = buf;
-
+	p->reg = NULL;
+	p->link = NULL;
+	
 	return p;
 }
 
-Symbol IntConstant(int i)
+Symbol SymTable::IntConstant(int i)
 {
 	return AddConstant(i);
 }
 
-void InitSymbolTable(void)
+void SymTable::InitSymbolTable(void)
 {
 	Level = 0;
 
 	Identifiers = &GlobalIDs;
+	Identifiers->outer = NULL;
 
 	TempNum = LabelNum = 0;
 

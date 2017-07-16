@@ -1,8 +1,6 @@
 #include "gen.h"
 
-BBlock CurrentBB = NULL;	//當前的基本块
-
-BBlock CreateBBlock(void)
+BBlock IRGen::CreateBBlock(void)
 {
 	BBlock bb = new bblock;
 
@@ -19,7 +17,7 @@ BBlock CreateBBlock(void)
 	return bb;
 }
 
-void StartBBlock(BBlock bb)
+void IRGen::StartBBlock(BBlock bb)
 {
 	if (CurrentBB == NULL) {
 		CurrentBB = bb;
@@ -41,7 +39,12 @@ void StartBBlock(BBlock bb)
 	}
 }
 
-void AppendInst(IRInst inst)
+BBlock IRGen::GetCurrentBB()
+{
+	return CurrentBB;
+}
+
+void IRGen::AppendInst(IRInst inst)
 {
 
 	if (CurrentBB != NULL) {
@@ -58,12 +61,14 @@ void AppendInst(IRInst inst)
 	}
 }
 
-void GenerateMove(Symbol dst, Symbol src)
+void IRGen::GenerateMove(Symbol dst, Symbol src)
 {
 	IRInst inst = new irinst;
 
+	// 增加引用數
 	dst->ref++;
 	src->ref++;
+
 	inst->opcode = $MOV;
 	inst->opds[0] = dst;
 	inst->opds[1] = src;
@@ -71,13 +76,14 @@ void GenerateMove(Symbol dst, Symbol src)
 	AppendInst(inst);
 }
 
-void GenerateBranch(BBlock dstBB, int opcode, Symbol src1, Symbol src2)
+void IRGen::GenerateBranch(BBlock dstBB, int opcode, Symbol src1, Symbol src2)
 {
 	IRInst inst = new irinst;
 
 	dstBB->ref++;
 	src1->ref++;
 	if (src2) src2->ref++;
+
 	CurrentBB->succs = dstBB;
 
 	inst->opcode = opcode;
@@ -88,7 +94,7 @@ void GenerateBranch(BBlock dstBB, int opcode, Symbol src1, Symbol src2)
 	AppendInst(inst);
 }
 
-void GenerateJump(BBlock dstBB)
+void IRGen::GenerateJump(BBlock dstBB)
 {
 	IRInst inst = new irinst;
 
@@ -102,10 +108,11 @@ void GenerateJump(BBlock dstBB)
 	AppendInst(inst);
 }
 
-void GenerateAssign(Symbol dst, int opcode, Symbol src1, Symbol src2)
+void IRGen::GenerateAssign(Symbol dst, int opcode, Symbol src1, Symbol src2)
 {
 	IRInst inst = new irinst;
 
+	// 增加引用數
 	dst->ref++;
 	src1->ref++;
 	if (src2) src2->ref++;
@@ -117,10 +124,12 @@ void GenerateAssign(Symbol dst, int opcode, Symbol src1, Symbol src2)
 
 	AppendInst(inst);
 }
-void GenerateFunctionCall(Symbol recv, Symbol faddr, ParameterList args)
+
+void IRGen::GenerateFunctionCall(Symbol recv, Symbol faddr, ParameterList args)
 {
 	IRInst inst = new irinst;
 
+	// 增加引用數
 	if (recv) recv->ref++;
 	faddr->ref++;
 	vector<Symbol>::iterator it = args->args.begin();
@@ -135,18 +144,20 @@ void GenerateFunctionCall(Symbol recv, Symbol faddr, ParameterList args)
 	AppendInst(inst);
 }
 
-void GenerateReturn(Symbol src)
+void IRGen::GenerateReturn(Symbol src)
 {
 	IRInst inst = new irinst;
 	
+	// 增加引用數
 	src->ref++;
+
 	inst->opcode = $RETU;
 	inst->opds[0] = src;
 	inst->opds[1] = inst->opds[2] = NULL;
 	AppendInst(inst);
 }
 
-void GenerateRet()
+void IRGen::GenerateRet()
 {
 	IRInst inst = new irinst;
 

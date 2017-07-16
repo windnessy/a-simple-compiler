@@ -14,7 +14,7 @@ typedef struct irinst
 	Symbol opds[3];
 } *IRInst;
 
-struct bblock
+struct bblock 
 {
 	struct bblock *prev;
 	struct bblock *next;
@@ -36,20 +36,27 @@ struct bblock
 typedef struct parameterlist
 {
 	vector<Symbol> args;
-	int npara;
+	int npara = 0;
 } *ParameterList;
 
-BBlock CreateBBlock(void);
-void   StartBBlock(BBlock bb);
+class IRGen {
+private:
+	BBlock CurrentBB = NULL;	//當前的基本块
 
-void AppendInst(IRInst inst);
+public:
+	BBlock CreateBBlock(void);
+	void   StartBBlock(BBlock bb);
+	BBlock GetCurrentBB();
 
-void GenerateMove(Symbol dst, Symbol src);
-void GenerateBranch(BBlock dstBB, int opcode, Symbol src1, Symbol src2);
-void GenerateJump(BBlock dstBB);
-void GenerateAssign(Symbol dst, int opcode, Symbol src1, Symbol src2);
-void GenerateFunctionCall(Symbol recv, Symbol faddr, ParameterList args);
-void GenerateReturn(Symbol src);
-void GenerateRet();
+	void AppendInst(IRInst inst);
+
+	void GenerateMove(Symbol dst, Symbol src);
+	void GenerateBranch(BBlock dstBB, int opcode, Symbol src1, Symbol src2);
+	void GenerateJump(BBlock dstBB);
+	void GenerateAssign(Symbol dst, int opcode, Symbol src1, Symbol src2);
+	void GenerateFunctionCall(Symbol recv, Symbol faddr, ParameterList args);
+	void GenerateReturn(Symbol src);
+	void GenerateRet();
+};
 #endif
 

@@ -1,9 +1,6 @@
 #ifndef __OPCODE_H_
 #define __OPCODE_H_
 
-#include <string>
-#include <map>
-
 using namespace std;
 
 enum

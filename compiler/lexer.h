@@ -1,3 +1,5 @@
+#include "error.h"
+
 #include <vector>
 #include <map>
 #include <string>
@@ -22,9 +24,10 @@ typedef map<TSymbol, string> SymbolList;
 typedef struct Word {
 	TSymbol t_symbol;	//symbol type
 	string token;
+	int wordline;
 } Word;
 
-class Lexer {
+class Lexer : protected Error {
 protected:
 	vector<Word> wordList;
 	SymbolList symbolList;
@@ -41,6 +44,8 @@ private:
 
 	Word createWord(TSymbol, string);
 	string::iterator iter;
+	int line;
+
 public:
 	void analyze(string input);
 	void printResult();
