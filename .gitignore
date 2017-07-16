@@ -30,3 +30,4 @@
 *.exe
 *.out
 *.app
+.vs/compiler/v14/.suo
