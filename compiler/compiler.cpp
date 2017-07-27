@@ -250,9 +250,6 @@ string Compiler::GetAccessName(Symbol p)
 	return p->aname;
 }
 
-/*
-
-*/
 void Compiler::Export(Symbol p)
 {
 	char tmp[1024];
