@@ -133,9 +133,6 @@ void Compiler::PutASMCode(const char *str, Symbol opds[])
 */
 void Compiler::SetupRegisters()
 {
-	/*
-
-	*/
 	int i;
 	for (i = 0; i <= RA; i++) {
 		Regs[i] = NULL;
